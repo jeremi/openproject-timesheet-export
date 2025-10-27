@@ -43,7 +43,6 @@ def get_collection(session: requests.Session, url: str):
         r.raise_for_status()
         data = r.json()
         for el in data.get("_embedded", {}).get("elements", []):
-            return_url = url  # keep for errors
             yield el
         next_link = (data.get("_links", {}).get("nextByOffset") or {}).get("href")
         url = urljoin(session.base_url, next_link) if next_link else None
@@ -71,6 +70,18 @@ def resolve_custom_option_value(session: requests.Session, href: str) -> str:
     session._custom_opt_cache[href] = val
     return val
 
+def get_username(session: requests.Session, user_id: str) -> str:
+    """Fetch the username/login for the given user ID or 'me'."""
+    url = f"{session.base_url}/api/v3/users/{user_id}"
+    try:
+        r = session.get(url)
+        r.raise_for_status()
+        user_data = r.json()
+        # Try login first, fall back to name, then id
+        return user_data.get("login") or user_data.get("name") or user_id
+    except Exception:
+        return user_id
+
 def main():
     p = argparse.ArgumentParser(description="Export OpenProject monthly timesheet to Excel")
     p.add_argument("--base-url", default=os.getenv("OPENPROJECT_BASE_URL"), required=False,
@@ -83,7 +94,7 @@ def main():
                    help="User id or 'me' (default: me)")
     p.add_argument("--location-cf", default=os.getenv("OPENPROJECT_LOCATION_CF", ""),
                    help="Custom field key for Location, e.g. customField7 (optional)")
-    p.add_argument("--out", default=None, help="Output XLSX path (default: ./timesheet-YYYY-MM.xlsx)")
+    p.add_argument("--out", default=None, help="Output XLSX path (default: ./timesheet-<username>-YYYY-MM.xlsx)")
     p.add_argument("--page-size", type=int, default=200, help="API page size (default: 200)")
     args = p.parse_args()
 
@@ -91,12 +102,15 @@ def main():
         raise SystemExit("Set --base-url and --api-key (or OPENPROJECT_BASE_URL / OPENPROJECT_API_KEY).")
 
     first, last = month_bounds(args.month)
-    out_path = args.out or f"timesheet-{args.month}.xlsx"
 
     session = requests.Session()
     session.auth = ("apikey", args.api_key)  # per API docs
     # stash base_url on session for pagination helpers
     session.base_url = args.base_url.rstrip("/")
+
+    # Fetch username for filename
+    username = get_username(session, args.user)
+    out_path = args.out or f"timesheet-{username}-{args.month}.xlsx"
 
     filters = [
         {"spent_on": {"operator": "<>d", "values": [first.isoformat(), last.isoformat()]}},

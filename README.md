@@ -86,7 +86,7 @@ openproject-export --out /path/to/timesheet.xlsx
 | `--month`, `-m` | - | Current month | Month to export (format: YYYY-MM) |
 | `--user` | `OPENPROJECT_USER` | `me` | User ID or 'me' for current user |
 | `--location-cf` | `OPENPROJECT_LOCATION_CF` | - | Custom field key for location (e.g., customField7) |
-| `--out` | - | `timesheet-YYYY-MM.xlsx` | Output file path |
+| `--out` | - | `timesheet-<username>-YYYY-MM.xlsx` | Output file path |
 | `--page-size` | - | 200 | API page size for pagination |
 
 ## Output Format
